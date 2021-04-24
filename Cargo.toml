@@ -1,6 +1,6 @@
 [package]
 name = "nfc1-sys"
-version = "0.1.0"
+version = "0.1.1"
 description = "Rust bindings for libnfc"
 authors = ["Alexander Sagen <alexander@sagen.me>"]
 repository = "https://github.com/alexrsagen/rs-nfc1-sys"
@@ -10,7 +10,7 @@ edition = "2018"
 links = "nfc"
 
 [dependencies]
-usb-compat-01-sys = { version = "0.1", path = "../rs-usb-compat-0.1-sys" }
+usb-compat-01-sys = "0.1"
 
 [build-dependencies]
 cc = "1.0"
