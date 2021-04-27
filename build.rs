@@ -49,7 +49,7 @@ fn main() {
 		.clang_arg(format!("-I{}", include_dir.display()))
 		.clang_arg(format!("-I{}", libnfc_dir.display()))
 		.header(include_dir.join("nfc").join("nfc.h").to_str().unwrap())
-		.allowlist_function("iso14443a_.*")
+		.allowlist_function("iso14443[ab]_.*")
 		.allowlist_function("nfc_.*")
 		.allowlist_type("nfc_.*")
 		.allowlist_var("NFC_.*")
