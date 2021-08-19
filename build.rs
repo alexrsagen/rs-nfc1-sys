@@ -32,6 +32,9 @@ fn main() {
 		.define("CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE", &build_dir)
 		.define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE", &build_dir)
 		.define("CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE", &build_dir)
+		.define("LIBNFC_LOG", "OFF")
+		.define("LIBNFC_CONFFILES_MODE", "OFF")
+		.define("LIBNFC_ENVVARS", "OFF")
 		.out_dir(&out_dir)
 		.build();
 
