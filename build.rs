@@ -10,6 +10,7 @@ static VERSION: &'static str = "1.8.0";
 
 fn main() {
 	let usb01_include_dir = PathBuf::from(env::var("DEP_USB_0.1_INCLUDE").expect("usb-compat-01-sys did not export DEP_USB_0.1_INCLUDE"));
+	let usb1_include_dir = PathBuf::from(env::var("DEP_USB_1.0_INCLUDE").expect("libusb1-sys did not export DEP_USB_1.0_INCLUDE"));
 	let vendor_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR var not set")).join("vendor");
 	let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR var not set"));
 	let build_dir = out_dir.join("build").join("libnfc");
@@ -19,31 +20,39 @@ fn main() {
 
 	// Build libnfc and link against it
 	fs::create_dir_all(&out_dir).unwrap();
-	cmake::Config::new(&nfc_dir)
-		.define("DLLTOOL", &env::var("DLLTOOL").unwrap_or(String::from("dlltool")))
-		.define("LIBUSB_INCLUDE_DIRS", &usb01_include_dir)
-		.define("LIBUSB_LIBRARIES", &usb01_include_dir.parent().unwrap().join("usb.lib"))
-		.define("BUILD_UTILS", "OFF")
-		.define("BUILD_EXAMPLES", "OFF")
-		.define("BUILD_SHARED_LIBS", "OFF")
-		.define("CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG", &build_dir)
-		.define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG", &build_dir)
-		.define("CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG", &build_dir)
-		.define("CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE", &build_dir)
-		.define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE", &build_dir)
-		.define("CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE", &build_dir)
-		.define("LIBNFC_LOG", "OFF")
-		.define("LIBNFC_CONFFILES_MODE", "OFF")
-		.define("LIBNFC_ENVVARS", "OFF")
-		.out_dir(&out_dir)
-		.build();
+	let mut config = cmake::Config::new(&nfc_dir);
+	config.define("DLLTOOL", &env::var("DLLTOOL").unwrap_or(String::from("dlltool")));
+	config.define("LIBUSB_INCLUDE_DIRS", &usb01_include_dir);
+	config.define("BUILD_UTILS", "OFF");
+	config.define("BUILD_EXAMPLES", "OFF");
+	config.define("BUILD_SHARED_LIBS", "OFF");
+	config.define("CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG", &build_dir);
+	config.define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG", &build_dir);
+	config.define("CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG", &build_dir);
+	config.define("CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE", &build_dir);
+	config.define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE", &build_dir);
+	config.define("CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE", &build_dir);
+	config.define("LIBNFC_LOG", "OFF");
+	config.define("LIBNFC_CONFFILES_MODE", "OFF");
+	config.define("LIBNFC_ENVVARS", "OFF");
+	config.out_dir(&out_dir);
+
+	if std::env::var("CARGO_CFG_TARGET_OS") == Ok("windows".into()) {
+		config.define("LIBUSB_LIBRARIES", &usb01_include_dir.parent().unwrap().join("usb.lib"));
+	} else {
+		let usb01_lib = usb01_include_dir.parent().unwrap().join("libusb.a").into_os_string().into_string().unwrap();
+		let usb1_lib = usb1_include_dir.parent().unwrap().join("libusb.a").into_os_string().into_string().unwrap();
+		config.define("LIBUSB_LIBRARIES", usb01_lib + ";" + &usb1_lib);
+		config.define("LIBUSB_FOUND", "TRUE");
+	}
+
+	config.build();
 
 	// Output metainfo
 	println!("cargo:vendored=1");
 	println!("cargo:static=1");
 	println!("cargo:include={}", include_dir.display());
 	println!("cargo:version_number={}", VERSION);
-	println!("cargo:rustc-link-lib=static=nfc");
 	println!("cargo:rustc-link-lib=dylib=nfc");
 	println!("cargo:rustc-link-search=native={}", build_dir.display());
 
