@@ -8,6 +8,16 @@ use std::path::PathBuf;
 
 static VERSION: &'static str = "1.8.0";
 
+macro_rules! on_by_feature {
+	($f: literal) => {
+		if cfg!(feature = $f) {
+			"ON"
+		} else {
+			"OFF"
+		}
+	}
+}
+
 fn make_source(nfc_dir: &PathBuf, out_dir: &PathBuf) -> Package {
 	let usb01_include_dir = PathBuf::from(env::var("DEP_USB_0.1_INCLUDE").expect("usb-compat-01-sys did not export DEP_USB_0.1_INCLUDE"));
 	let usb1_include_dir = PathBuf::from(env::var("DEP_USB_1.0_INCLUDE").expect("libusb1-sys did not export DEP_USB_1.0_INCLUDE"));
@@ -28,9 +38,9 @@ fn make_source(nfc_dir: &PathBuf, out_dir: &PathBuf) -> Package {
 	config.define("CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE", &build_dir);
 	config.define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE", &build_dir);
 	config.define("CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE", &build_dir);
-	config.define("LIBNFC_LOG", "OFF");
-	config.define("LIBNFC_CONFFILES_MODE", "OFF");
-	config.define("LIBNFC_ENVVARS", "OFF");
+	config.define("LIBNFC_LOG", on_by_feature!("logging"));
+	config.define("LIBNFC_CONFFILES_MODE", on_by_feature!("conffiles"));
+	config.define("LIBNFC_ENVVARS", on_by_feature!("envvars"));
 	config.out_dir(&out_dir);
 
 	if std::env::var("CARGO_CFG_TARGET_OS") == Ok("windows".into()) {

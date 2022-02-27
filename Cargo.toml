@@ -11,6 +11,9 @@ links = "nfc"
 
 [features]
 vendored = []
+logging = ["vendored"]
+conffiles = ["vendored"]
+envvars = ["vendored"]
 default = ["vendored"]
 
 [dependencies]
