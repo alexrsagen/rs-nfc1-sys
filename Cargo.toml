@@ -15,7 +15,21 @@ drivers = []
 logging = ["vendored"]
 conffiles = ["vendored"]
 envvars = ["vendored"]
-default = ["vendored", "drivers"]
+driver_pcsc = ["vendored"]
+driver_acr122_pcsc = ["vendored"]
+driver_acr122_usb = ["vendored"]
+driver_acr122s = ["vendored"]
+driver_arygon = ["vendored"]
+driver_pn532_uart = ["vendored"]
+driver_pn53x_usb = ["vendored"]
+default_drivers = [
+    "driver_acr122_usb",
+    "driver_acr122s",
+    "driver_arygon",
+    "driver_pn532_uart",
+    "driver_pn53x_usb",
+]
+default = ["vendored", "drivers", "default_drivers"]
 
 [dependencies]
 libusb1-sys = { version = "0.5", features = ["vendored"] }

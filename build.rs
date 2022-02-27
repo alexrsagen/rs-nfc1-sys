@@ -41,6 +41,13 @@ fn make_source(nfc_dir: &PathBuf, out_dir: &PathBuf) -> Package {
 	config.define("LIBNFC_LOG", on_by_feature!("logging"));
 	config.define("LIBNFC_CONFFILES_MODE", on_by_feature!("conffiles"));
 	config.define("LIBNFC_ENVVARS", on_by_feature!("envvars"));
+	config.define("LIBNFC_DRIVER_PCSC", on_by_feature!("driver_pcsc"));
+	config.define("LIBNFC_DRIVER_ACR122_PCSC", on_by_feature!("driver_acr122_pcsc"));
+	config.define("LIBNFC_DRIVER_ACR122_USB", on_by_feature!("driver_acr122_usb"));
+	config.define("LIBNFC_DRIVER_ACR122S", on_by_feature!("driver_acr122s"));
+	config.define("LIBNFC_DRIVER_ARYGON", on_by_feature!("driver_arygon"));
+	config.define("LIBNFC_DRIVER_PN532_UART", on_by_feature!("driver_pn532_uart"));
+	config.define("LIBNFC_DRIVER_PN53X_USB", on_by_feature!("driver_pn53x_usb"));
 	config.out_dir(&out_dir);
 
 	if std::env::var("CARGO_CFG_TARGET_OS") == Ok("windows".into()) {
