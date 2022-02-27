@@ -11,10 +11,11 @@ links = "nfc"
 
 [features]
 vendored = []
+drivers = []
 logging = ["vendored"]
 conffiles = ["vendored"]
 envvars = ["vendored"]
-default = ["vendored"]
+default = ["vendored", "drivers"]
 
 [dependencies]
 libusb1-sys = { version = "0.5", features = ["vendored"] }
