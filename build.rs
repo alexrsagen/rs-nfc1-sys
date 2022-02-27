@@ -8,15 +8,11 @@ use std::path::PathBuf;
 
 static VERSION: &'static str = "1.8.0";
 
-fn main() {
+fn make_source(nfc_dir: &PathBuf, out_dir: &PathBuf) -> Package {
 	let usb01_include_dir = PathBuf::from(env::var("DEP_USB_0.1_INCLUDE").expect("usb-compat-01-sys did not export DEP_USB_0.1_INCLUDE"));
 	let usb1_include_dir = PathBuf::from(env::var("DEP_USB_1.0_INCLUDE").expect("libusb1-sys did not export DEP_USB_1.0_INCLUDE"));
-	let vendor_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR var not set")).join("vendor");
-	let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR var not set"));
-	let build_dir = out_dir.join("build").join("libnfc");
 	let include_dir = out_dir.join("include");
-	let nfc_dir = vendor_dir.join("nfc");
-	let libnfc_dir = nfc_dir.join("libnfc");
+	let build_dir = out_dir.join("build").join("libnfc");
 
 	// Build libnfc and link against it
 	fs::create_dir_all(&out_dir).unwrap();
@@ -56,11 +52,86 @@ fn main() {
 	println!("cargo:rustc-link-lib=dylib=nfc");
 	println!("cargo:rustc-link-search=native={}", build_dir.display());
 
+	Package{
+		include_paths: vec![include_dir],
+	}
+}
+
+struct Package {
+	include_paths: Vec<PathBuf>,
+}
+
+#[cfg(target_env = "msvc")]
+fn find_libnfc_pkg(_statik: bool) -> Option<Package> {
+	match vcpkg::Config::new().find_package("libnfc") {
+		Ok(l) => Some(Package {
+			include_paths: l.include_paths,
+		}),
+		Err(e) => {
+			println!("Can't find libnfc pkg: {:?}", e);
+			None
+		}
+	}
+}
+
+#[cfg(not(target_env = "msvc"))]
+fn find_libnfc_pkg(is_static: bool) -> Option<Package> {
+	match pkg_config::Config::new().statik(is_static).probe("libnfc") {
+		Ok(l) => {
+			for lib in l.libs {
+				if is_static {
+					println!("cargo:rustc-link-lib=static={}", lib);
+				}
+			}
+			// Provide metadata and include directory for dependencies
+			if is_static {
+				println!("cargo:static=1");
+			}
+			l.include_paths.iter().for_each(|path| {
+				println!("cargo:include={}", path.to_str().unwrap());
+			});
+			println!("cargo:version_number={}", l.version);
+
+			Some(Package {
+				include_paths: l.include_paths,
+			})
+		}
+		Err(e) => {
+			println!("Can't find libnfc pkg: {:?}", e);
+			None
+		}
+	}
+}
+
+fn main() {
+	let vendor_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR var not set")).join("vendor");
+	let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR var not set"));
+	let nfc_dir = vendor_dir.join("nfc");
+	let libnfc_dir = nfc_dir.join("libnfc");
+	let libnfc_pkg = if cfg!(feature = "vendored") {
+		make_source(&nfc_dir, &out_dir)
+	} else {
+		let is_static = std::env::var("CARGO_CFG_TARGET_FEATURE")
+			.map(|s| s.contains("crt-static"))
+			.unwrap_or_default();
+
+		find_libnfc_pkg(is_static)
+			.expect("libnfc not found.")
+	};
+
+	let mut bindings = Builder::default();
+	for path in libnfc_pkg.include_paths {
+		bindings = bindings.clang_arg(format!("-I{}", path.display()));
+
+		let header_path = path.join("nfc").join("nfc.h");
+		if header_path.exists() {
+			bindings = bindings.header(header_path.to_str().unwrap())
+		}
+	}
+
 	// Generate libnfc bindings
 	let bindings = Builder::default()
-		.clang_arg(format!("-I{}", include_dir.display()))
 		.clang_arg(format!("-I{}", libnfc_dir.display()))
-		.header(include_dir.join("nfc").join("nfc.h").to_str().unwrap())
 		.allowlist_function("iso14443[ab]_.*")
 		.allowlist_function("str_nfc_.*")
 		.allowlist_function("nfc_.*")

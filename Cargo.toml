@@ -9,6 +9,10 @@ license = "MIT"
 edition = "2018"
 links = "nfc"
 
+[features]
+vendored = []
+default = ["vendored"]
+
 [dependencies]
 libusb1-sys = { version = "0.5", features = ["vendored"] }
 usb-compat-01-sys = "0.2"
@@ -17,6 +21,10 @@ usb-compat-01-sys = "0.2"
 cc = "1.0"
 cmake = "0.1"
 bindgen = "0.58"
+pkg-config = "0.3"
+
+[target.'cfg(target_env = "msvc")'.build-dependencies]
+vcpkg = "0.2"
 
 [lib]
 crate-type = ["rlib", "staticlib"]
