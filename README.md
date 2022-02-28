@@ -5,7 +5,16 @@ This crate provides low-level bindings to [`libnfc`](https://github.com/alexrsag
 
 In contrast to [`nfc-sys`](https://github.com/dsgriffin/nfc-sys), this crate additionally provides:
 - [Metadata](https://doc.rust-lang.org/cargo/reference/build-scripts.html#the-links-manifest-key) which allows dependent crates to find the `nfc/nfc.h` header, compile native code that depends on `libnfc` or link to it in Rust code.
-- Vendored submodule copy of `libnfc` (with build tweaks for `x86_64-pc-windows-msvc`), which means you don't have to separately install `libnfc` to use this crate.
+- Vendored submodule copy of `libnfc` (with build tweaks for `x86_64-pc-windows-msvc`), which means you don't have to separately install `libnfc` to use this crate. The vendoring is optional and can be disabled by removing the `vendored` feature.
+
+## Features
+|Feature|Default?|Description|
+|---|---|---|
+|vendored|**Yes**|Use vendored libnfc, instead of installed one on the platform.|
+|drivers|**Yes**|Add chip or driver specific symbols from vendored libnfc.|
+|logging|No|Enables logging when using the vendored libnfc.|
+|conffiles|No|Enables config files on vendored libnfc.|
+|envvars|No|Enables environment variables on vendored libnfc.|
 
 ## Usage
 Add `nfc1-sys` as a dependency in your project's `Cargo.toml` file:
