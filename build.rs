@@ -1,9 +1,9 @@
 extern crate cc;
 extern crate cmake;
 extern crate bindgen;
+extern crate pkg_config;
 
 use bindgen::Builder;
-use std::{env, fs};
 use std::path::PathBuf;
 
 static VERSION: &'static str = "1.8.0";
@@ -18,16 +18,19 @@ macro_rules! on_by_feature {
 	}
 }
 
+#[cfg(feature = "vendored")]
 fn make_source(nfc_dir: &PathBuf, out_dir: &PathBuf) -> Package {
-	let usb01_include_dir = PathBuf::from(env::var("DEP_USB_0.1_INCLUDE").expect("usb-compat-01-sys did not export DEP_USB_0.1_INCLUDE"));
-	let usb1_include_dir = PathBuf::from(env::var("DEP_USB_1.0_INCLUDE").expect("libusb1-sys did not export DEP_USB_1.0_INCLUDE"));
+	use std::env::var;
+
+	let usb01_include_dir = PathBuf::from(var("DEP_USB_0.1_INCLUDE").expect("usb-compat-01-sys did not export DEP_USB_0.1_INCLUDE"));
+	let usb1_include_dir = PathBuf::from(var("DEP_USB_1.0_INCLUDE").expect("libusb1-sys did not export DEP_USB_1.0_INCLUDE"));
 	let include_dir = out_dir.join("include");
 	let build_dir = out_dir.join("build").join("libnfc");
 
 	// Build libnfc and link against it
-	fs::create_dir_all(&out_dir).unwrap();
+	std::fs::create_dir_all(&out_dir).unwrap();
 	let mut config = cmake::Config::new(&nfc_dir);
-	config.define("DLLTOOL", &env::var("DLLTOOL").unwrap_or(String::from("dlltool")));
+	config.define("DLLTOOL", &var("DLLTOOL").unwrap_or(String::from("dlltool")));
 	config.define("LIBUSB_INCLUDE_DIRS", &usb01_include_dir);
 	config.define("BUILD_UTILS", "OFF");
 	config.define("BUILD_EXAMPLES", "OFF");
@@ -50,7 +53,7 @@ fn make_source(nfc_dir: &PathBuf, out_dir: &PathBuf) -> Package {
 	config.define("LIBNFC_DRIVER_PN53X_USB", on_by_feature!("driver_pn53x_usb"));
 	config.out_dir(&out_dir);
 
-	if std::env::var("CARGO_CFG_TARGET_OS") == Ok("windows".into()) {
+	if var("CARGO_CFG_TARGET_OS") == Ok("windows".into()) {
 		config.define("LIBUSB_LIBRARIES", &usb01_include_dir.parent().unwrap().join("usb.lib"));
 	} else {
 		let usb01_lib = usb01_include_dir.parent().unwrap().join("libusb.a").into_os_string().into_string().unwrap();
@@ -66,8 +69,16 @@ fn make_source(nfc_dir: &PathBuf, out_dir: &PathBuf) -> Package {
 	println!("cargo:static=1");
 	println!("cargo:include={}", include_dir.display());
 	println!("cargo:version_number={}", VERSION);
-	println!("cargo:rustc-link-lib=dylib=nfc");
+	println!("cargo:rustc-link-lib=nfc");
 	println!("cargo:rustc-link-search=native={}", build_dir.display());
+	if var("CARGO_CFG_TARGET_OS") == Ok("macos".into()) {
+		println!("cargo:rustc-link-lib=framework=CoreFoundation");
+		println!("cargo:rustc-link-lib=framework=IOKit");
+		println!("cargo:rustc-link-lib=objc");
+	}
+	if var("CARGO_CFG_TARGET_FAMILY") == Ok("unix".into()) && pkg_config::probe_library("libudev").is_ok() {
+		println!("cargo:rustc-link-lib=udev");
+	}
 
 	Package{
 		include_paths: vec![include_dir],
@@ -79,7 +90,7 @@ struct Package {
 }
 
 #[cfg(target_env = "msvc")]
-fn find_libnfc_pkg(_statik: bool) -> Option<Package> {
+fn find_libnfc_pkg(_is_static: bool) -> Option<Package> {
 	match vcpkg::Config::new().find_package("libnfc") {
 		Ok(l) => Some(Package {
 			include_paths: l.include_paths,
@@ -121,13 +132,14 @@ fn find_libnfc_pkg(is_static: bool) -> Option<Package> {
 }
 
 fn main() {
-	let vendor_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR var not set")).join("vendor");
-	let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR var not set"));
+	use std::env::{var, var_os};
+	let vendor_dir = PathBuf::from(var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR var not set")).join("vendor");
+	let out_dir = PathBuf::from(var("OUT_DIR").expect("OUT_DIR var not set"));
 	let nfc_dir = vendor_dir.join("nfc");
 	let libnfc_pkg = if cfg!(feature = "vendored") {
 		make_source(&nfc_dir, &out_dir)
 	} else {
-		let is_static = std::env::var("CARGO_CFG_TARGET_FEATURE")
+		let is_static = var("CARGO_CFG_TARGET_FEATURE")
 			.map(|s| s.contains("crt-static"))
 			.unwrap_or_default();
 
