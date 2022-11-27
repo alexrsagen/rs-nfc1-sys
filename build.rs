@@ -3,6 +3,9 @@ extern crate cmake;
 extern crate bindgen;
 extern crate pkg_config;
 
+#[cfg(target_os = "windows")]
+extern crate find_winsdk;
+
 use bindgen::Builder;
 use std::path::PathBuf;
 
@@ -53,13 +56,59 @@ fn make_source(nfc_dir: &PathBuf, out_dir: &PathBuf) -> Package {
 	config.define("LIBNFC_DRIVER_PN53X_USB", on_by_feature!("driver_pn53x_usb"));
 	config.out_dir(&out_dir);
 
-	if var("CARGO_CFG_TARGET_OS") == Ok("windows".into()) {
+	if cfg!(target_os = "windows") {
 		config.define("LIBUSB_LIBRARIES", &usb01_include_dir.parent().unwrap().join("usb.lib"));
+
+		if cfg!(feature = "driver_pcsc") {
+			if let Ok(Some(winsdk)) = find_winsdk::SdkInfo::find(find_winsdk::SdkVersion::Any) {
+				let mut windows_um_include_path = winsdk.installation_folder().join("Include");
+				if let Ok(include_dirs) = std::fs::read_dir(&windows_um_include_path) {
+					for dir_entry in include_dirs {
+						if let Ok(entry) = dir_entry {
+							if let Some(dir_name) = entry.file_name().to_str() {
+								if dir_name.starts_with(winsdk.product_version()) {
+									windows_um_include_path = windows_um_include_path.join(dir_name).join("um");
+									config.define("PCSC_INCLUDE_DIRS", &windows_um_include_path);
+									break
+								}
+							}
+						}
+					}
+				}
+
+				let windows_sdk_arch = match var("CARGO_CFG_TARGET_ARCH").as_deref() {
+					Ok("x86") => Some("x86"),
+					Ok("x86_64") => Some("x64"),
+					Ok("arm") => Some("arm"),
+					Ok("aarch64") => Some("arm64"),
+					_ => None,
+				};
+				if let Some(windows_sdk_arch) = windows_sdk_arch {
+					let mut windows_um_lib_path = winsdk.installation_folder().join("Lib");
+					if let Ok(lib_dirs) = std::fs::read_dir(&windows_um_lib_path) {
+						for dir_entry in lib_dirs {
+							if let Ok(entry) = dir_entry {
+								if let Some(dir_name) = entry.file_name().to_str() {
+									if dir_name.starts_with(winsdk.product_version()) {
+										windows_um_lib_path = windows_um_lib_path.join(dir_name).join("um").join(windows_sdk_arch);
+										config.define("PCSC_LIBRARIES", &windows_um_lib_path.join("winscard.lib"));
+										break
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 	} else {
 		let usb01_lib = usb01_include_dir.parent().unwrap().join("libusb.a").into_os_string().into_string().unwrap();
 		let usb1_lib = usb1_include_dir.parent().unwrap().join("libusb.a").into_os_string().into_string().unwrap();
 		config.define("LIBUSB_LIBRARIES", usb01_lib + ";" + &usb1_lib);
 		config.define("LIBUSB_FOUND", "TRUE");
+	}
+	if cfg!(target_os = "macos") {
+		config.define("CMAKE_SHARED_LINKER_FLAGS", "-lobjc -framework IOKit -framework CoreFoundation");
 	}
 
 	config.build();
@@ -71,12 +120,12 @@ fn make_source(nfc_dir: &PathBuf, out_dir: &PathBuf) -> Package {
 	println!("cargo:version_number={}", VERSION);
 	println!("cargo:rustc-link-lib=nfc");
 	println!("cargo:rustc-link-search=native={}", build_dir.display());
-	if var("CARGO_CFG_TARGET_OS") == Ok("macos".into()) {
+	if cfg!(target_os = "macos") {
 		println!("cargo:rustc-link-lib=framework=CoreFoundation");
 		println!("cargo:rustc-link-lib=framework=IOKit");
 		println!("cargo:rustc-link-lib=objc");
 	}
-	if var("CARGO_CFG_TARGET_FAMILY") == Ok("unix".into()) && pkg_config::probe_library("libudev").is_ok() {
+	if cfg!(target_family = "unix") && pkg_config::probe_library("libudev").is_ok() {
 		println!("cargo:rustc-link-lib=udev");
 	}
 
@@ -139,11 +188,7 @@ fn main() {
 	let libnfc_pkg = if cfg!(feature = "vendored") {
 		make_source(&nfc_dir, &out_dir)
 	} else {
-		let is_static = var("CARGO_CFG_TARGET_FEATURE")
-			.map(|s| s.contains("crt-static"))
-			.unwrap_or_default();
-
-		find_libnfc_pkg(is_static)
+		find_libnfc_pkg(cfg!(target_feature = "crt-static"))
 			.expect("libnfc not found.")
 	};
 

@@ -1,6 +1,6 @@
 [package]
 name = "nfc1-sys"
-version = "0.2.1"
+version = "0.2.2"
 description = "Low-level Rust bindings for libnfc. For high-level safe bindings, see crate nfc1."
 authors = ["Alexander Sagen <alexander@sagen.me>"]
 repository = "https://github.com/alexrsagen/rs-nfc1-sys"
@@ -44,6 +44,9 @@ pkg-config = "0.3"
 
 [target.'cfg(target_env = "msvc")'.build-dependencies]
 vcpkg = "0.2"
+
+[target.'cfg(target_os = "windows")'.build-dependencies]
+find-winsdk = "0.2"
 
 [lib]
 crate-type = ["rlib", "staticlib"]
