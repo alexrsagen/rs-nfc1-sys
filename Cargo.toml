@@ -13,6 +13,7 @@ links = "nfc"
 vendored = ["libusb1-sys/vendored", "usb-compat-01-sys", "cmake"]
 drivers = []
 logging = ["vendored"]
+usb_logging = ["vendored", "usb-compat-01-sys/logging"]
 conffiles = ["vendored"]
 envvars = ["vendored"]
 driver_pcsc = ["vendored"]
