@@ -20,7 +20,7 @@ In contrast to [`nfc-sys`](https://github.com/dsgriffin/nfc-sys), this crate add
 Add `nfc1-sys` as a dependency in your project's `Cargo.toml` file:
 ```toml
 [dependencies]
-nfc1-sys = "0.2"
+nfc1-sys = "0.3"
 ```
 
 Import the `nfc1_sys` crate in your project, then you can use all functions starting with `nfc_` from `libnfc`.
