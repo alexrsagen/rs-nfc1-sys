@@ -8,6 +8,7 @@ extern crate find_winsdk;
 
 use bindgen::Builder;
 use std::path::PathBuf;
+use std::env::{var, var_os};
 
 static VERSION: &'static str = "1.8.0";
 
@@ -21,10 +22,101 @@ macro_rules! on_by_feature {
 	}
 }
 
+#[cfg(target_os = "windows")]
+fn set_pcsc_config_windows(config: &mut cmake::Config) {
+	// Find Windows SDK base path
+	let winsdk = find_winsdk::SdkInfo::find(find_winsdk::SdkVersion::Any);
+	if let Err(e) = winsdk {
+		panic!("Unable to find Windows SDK: {}", e);
+	}
+	let winsdk = winsdk.unwrap();
+	if winsdk.is_none() {
+		panic!("Unable to find Windows SDK. Please ensure the appropriate version of the Windows SDK for your target platform is installed with the correct feature set.");
+	}
+	let winsdk = winsdk.unwrap();
+
+	// Find Windows SDK include path
+	let winsdk_include_path = winsdk.installation_folder().join("Include");
+	let mut winsdk_um_include_path = None;
+	if let Ok(include_dirs) = std::fs::read_dir(&winsdk_include_path) {
+		for dir_entry in include_dirs {
+			if let Ok(entry) = dir_entry {
+				if let Some(dir_name) = entry.file_name().to_str() {
+					if dir_name.starts_with(winsdk.product_version()) {
+						winsdk_um_include_path = Some(winsdk_include_path.join(dir_name).join("um"));
+						break
+					}
+				}
+			}
+		}
+	}
+	if let Some(winsdk_um_include_path) = &winsdk_um_include_path {
+		config.define("PCSC_INCLUDE_DIRS", winsdk_um_include_path);
+	} else {
+		panic!("Unable to find Windows SDK include path. Please ensure the appropriate version of the Windows SDK for your target platform is installed with the correct feature set.");
+	}
+
+	// Find Windows SDK library path
+	let winsdk_lib_path = winsdk.installation_folder().join("Lib");
+	let mut winsdk_um_lib_path = None;
+	let winsdk_arch = match var("CARGO_CFG_TARGET_ARCH").as_deref() {
+		Ok("x86") => Some("x86"),
+		Ok("x86_64") => Some("x64"),
+		Ok("arm") => Some("arm"),
+		Ok("aarch64") => Some("arm64"),
+		_ => None,
+	};
+	if let Some(winsdk_arch) = winsdk_arch {
+		if let Ok(lib_dirs) = std::fs::read_dir(&winsdk_lib_path) {
+			for dir_entry in lib_dirs {
+				if let Ok(entry) = dir_entry {
+					if let Some(dir_name) = entry.file_name().to_str() {
+						if dir_name.starts_with(winsdk.product_version()) {
+							winsdk_um_lib_path = Some(winsdk_lib_path.join(dir_name).join("um").join(winsdk_arch));
+							break
+						}
+					}
+				}
+			}
+		}
+	}
+	if let Some(winsdk_um_lib_path) = &winsdk_um_lib_path {
+		config.define("PCSC_LIBRARIES", winsdk_um_lib_path.join("winscard.lib"));
+	} else {
+		panic!("Unable to find Windows SDK library path. Please ensure the appropriate version of the Windows SDK for your target platform is installed with the correct feature set.");
+	}
+}
+
+#[cfg(target_os = "windows")]
+fn set_platform_specific_config(config: &mut cmake::Config, usb01_include_dir: &PathBuf, usb1_include_dir: &PathBuf) {
+	config.define("LIBUSB_LIBRARIES", &usb01_include_dir.parent().unwrap().join("usb.lib"));
+	if cfg!(feature = "driver_pcsc") {
+		set_pcsc_config_windows(config);
+	}
+}
+
+#[cfg(not(target_os = "windows"))]
+fn set_unix_like_libusb_config(config: &mut cmake::Config, usb01_include_dir: &PathBuf, usb1_include_dir: &PathBuf) {
+	let usb01_lib = usb01_include_dir.parent().unwrap().join("libusb.a").into_os_string().into_string().unwrap();
+	let usb1_lib = usb1_include_dir.parent().unwrap().join("libusb.a").into_os_string().into_string().unwrap();
+	config.define("LIBUSB_LIBRARIES", usb01_lib + ";" + &usb1_lib);
+	config.define("LIBUSB_FOUND", "TRUE");
+}
+
+
+#[cfg(target_os = "macos")]
+fn set_platform_specific_config(config: &mut cmake::Config, usb01_include_dir: &PathBuf, usb1_include_dir: &PathBuf) {
+	set_unix_like_libusb_config(config, usb01_include_dir, usb1_include_dir);
+	config.define("CMAKE_SHARED_LINKER_FLAGS", "-lobjc -framework IOKit -framework CoreFoundation");
+}
+
+#[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+fn set_platform_specific_config(config: &mut cmake::Config, usb01_include_dir: &PathBuf, usb1_include_dir: &PathBuf) {
+	set_unix_like_libusb_config(config, usb01_include_dir, usb1_include_dir);
+}
+
 #[cfg(feature = "vendored")]
 fn make_source(nfc_dir: &PathBuf, out_dir: &PathBuf) -> Package {
-	use std::env::var;
-
 	let usb01_include_dir = PathBuf::from(var("DEP_USB_0.1_INCLUDE").expect("usb-compat-01-sys did not export DEP_USB_0.1_INCLUDE"));
 	let usb1_include_dir = PathBuf::from(var("DEP_USB_1.0_INCLUDE").expect("libusb1-sys did not export DEP_USB_1.0_INCLUDE"));
 	let include_dir = out_dir.join("include");
@@ -55,62 +147,7 @@ fn make_source(nfc_dir: &PathBuf, out_dir: &PathBuf) -> Package {
 	config.define("LIBNFC_DRIVER_PN532_UART", on_by_feature!("driver_pn532_uart"));
 	config.define("LIBNFC_DRIVER_PN53X_USB", on_by_feature!("driver_pn53x_usb"));
 	config.out_dir(&out_dir);
-
-	if cfg!(target_os = "windows") {
-		config.define("LIBUSB_LIBRARIES", &usb01_include_dir.parent().unwrap().join("usb.lib"));
-
-		if cfg!(feature = "driver_pcsc") {
-			if let Ok(Some(winsdk)) = find_winsdk::SdkInfo::find(find_winsdk::SdkVersion::Any) {
-				let mut windows_um_include_path = winsdk.installation_folder().join("Include");
-				if let Ok(include_dirs) = std::fs::read_dir(&windows_um_include_path) {
-					for dir_entry in include_dirs {
-						if let Ok(entry) = dir_entry {
-							if let Some(dir_name) = entry.file_name().to_str() {
-								if dir_name.starts_with(winsdk.product_version()) {
-									windows_um_include_path = windows_um_include_path.join(dir_name).join("um");
-									config.define("PCSC_INCLUDE_DIRS", &windows_um_include_path);
-									break
-								}
-							}
-						}
-					}
-				}
-
-				let windows_sdk_arch = match var("CARGO_CFG_TARGET_ARCH").as_deref() {
-					Ok("x86") => Some("x86"),
-					Ok("x86_64") => Some("x64"),
-					Ok("arm") => Some("arm"),
-					Ok("aarch64") => Some("arm64"),
-					_ => None,
-				};
-				if let Some(windows_sdk_arch) = windows_sdk_arch {
-					let mut windows_um_lib_path = winsdk.installation_folder().join("Lib");
-					if let Ok(lib_dirs) = std::fs::read_dir(&windows_um_lib_path) {
-						for dir_entry in lib_dirs {
-							if let Ok(entry) = dir_entry {
-								if let Some(dir_name) = entry.file_name().to_str() {
-									if dir_name.starts_with(winsdk.product_version()) {
-										windows_um_lib_path = windows_um_lib_path.join(dir_name).join("um").join(windows_sdk_arch);
-										config.define("PCSC_LIBRARIES", &windows_um_lib_path.join("winscard.lib"));
-										break
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	} else {
-		let usb01_lib = usb01_include_dir.parent().unwrap().join("libusb.a").into_os_string().into_string().unwrap();
-		let usb1_lib = usb1_include_dir.parent().unwrap().join("libusb.a").into_os_string().into_string().unwrap();
-		config.define("LIBUSB_LIBRARIES", usb01_lib + ";" + &usb1_lib);
-		config.define("LIBUSB_FOUND", "TRUE");
-	}
-	if cfg!(target_os = "macos") {
-		config.define("CMAKE_SHARED_LINKER_FLAGS", "-lobjc -framework IOKit -framework CoreFoundation");
-	}
-
+	set_platform_specific_config(&mut config, &usb01_include_dir, &usb1_include_dir);
 	config.build();
 
 	// Output metainfo
@@ -181,7 +218,6 @@ fn find_libnfc_pkg(is_static: bool) -> Option<Package> {
 }
 
 fn main() {
-	use std::env::{var, var_os};
 	let vendor_dir = PathBuf::from(var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR var not set")).join("vendor");
 	let out_dir = PathBuf::from(var("OUT_DIR").expect("OUT_DIR var not set"));
 	let nfc_dir = vendor_dir.join("nfc");
