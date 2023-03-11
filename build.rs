@@ -107,7 +107,7 @@ fn set_platform_specific_config(
     }
 }
 
-#[cfg(not(all(target_os = "windows", feature = "vendored")))]
+#[cfg(all(not(target_os = "windows"), feature = "vendored"))]
 fn set_unix_like_libusb_config(
     config: &mut cmake::Config,
     usb01_include_dir: &PathBuf,
