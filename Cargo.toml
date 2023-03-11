@@ -1,6 +1,6 @@
 [package]
 name = "nfc1-sys"
-version = "0.3.2"
+version = "0.3.3"
 description = "Low-level Rust bindings for libnfc. For high-level safe bindings, see crate nfc1."
 authors = ["Alexander Sagen <alexander@sagen.me>"]
 repository = "https://github.com/alexrsagen/rs-nfc1-sys"
