@@ -96,7 +96,7 @@ fn set_pcsc_config_windows(config: &mut cmake::Config) {
 fn set_platform_specific_config(
     config: &mut cmake::Config,
     usb01_include_dir: &PathBuf,
-    usb1_include_dir: &PathBuf,
+    _usb1_include_dir: &PathBuf,
 ) {
     config.define(
         "LIBUSB_LIBRARIES",
@@ -236,7 +236,7 @@ struct Package {
     include_paths: Vec<PathBuf>,
 }
 
-#[cfg(target_env = "msvc")]
+#[cfg(all(target_env = "msvc", not(feature = "vendored")))]
 fn find_libnfc_pkg(_is_static: bool) -> Option<Package> {
     match vcpkg::Config::new().find_package("libnfc") {
         Ok(l) => Some(Package {
@@ -249,7 +249,7 @@ fn find_libnfc_pkg(_is_static: bool) -> Option<Package> {
     }
 }
 
-#[cfg(not(target_env = "msvc"))]
+#[cfg(all(not(target_env = "msvc"), not(feature = "vendored")))]
 fn find_libnfc_pkg(is_static: bool) -> Option<Package> {
     match pkg_config::Config::new().statik(is_static).probe("libnfc") {
         Ok(l) => {
