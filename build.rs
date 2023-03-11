@@ -221,9 +221,14 @@ fn main() {
 	let vendor_dir = PathBuf::from(var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR var not set")).join("vendor");
 	let out_dir = PathBuf::from(var("OUT_DIR").expect("OUT_DIR var not set"));
 	let nfc_dir = vendor_dir.join("nfc");
-	let libnfc_pkg = if cfg!(feature = "vendored") {
+
+	#[cfg(feature = "vendored")]
+	let libnfc_pkg = {
 		make_source(&nfc_dir, &out_dir)
-	} else {
+	};
+
+	#[cfg(not(feature = "vendored"))]
+	let libnfc_pkg = {
 		find_libnfc_pkg(cfg!(target_feature = "crt-static"))
 			.expect("libnfc not found.")
 	};
