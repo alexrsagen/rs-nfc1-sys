@@ -1,12 +1,12 @@
 [package]
 name = "nfc1-sys"
-version = "0.3.4"
+version = "0.3.5"
 description = "Low-level Rust bindings for libnfc. For high-level safe bindings, see crate nfc1."
 authors = ["Alexander Sagen <alexander@sagen.me>"]
 repository = "https://github.com/alexrsagen/rs-nfc1-sys"
 readme = "README.md"
 license = "MIT"
-edition = "2018"
+edition = "2021"
 links = "nfc"
 
 [features]
@@ -39,7 +39,7 @@ usb-compat-01-sys = { version = "0.2", optional = true }
 [build-dependencies]
 cmake = { version = "0.1", optional = true }
 cc = "1.0"
-bindgen = "0.63"
+bindgen = "0.65"
 pkg-config = "0.3"
 
 [target.'cfg(target_env = "msvc")'.build-dependencies]
