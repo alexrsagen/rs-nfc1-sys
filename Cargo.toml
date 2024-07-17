@@ -11,6 +11,7 @@ links = "nfc"
 
 [features]
 vendored = ["libusb1-sys/vendored", "usb-compat-01-sys", "cmake"]
+force-pkg-config = []
 drivers = []
 logging = ["vendored"]
 usb_logging = ["vendored", "usb-compat-01-sys/logging"]
