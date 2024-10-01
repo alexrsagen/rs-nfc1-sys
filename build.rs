@@ -237,42 +237,54 @@ struct Package {
 }
 
 #[cfg(all(target_env = "msvc", not(feature = "vendored")))]
-fn find_libnfc_pkg(_is_static: bool) -> Option<Package> {
+fn find_libnfc_pkg_platform_specific(is_static: bool) -> Option<Package> {
     match vcpkg::Config::new().find_package("libnfc") {
-        Ok(l) => Some(Package {
-            include_paths: l.include_paths,
-        }),
+        Ok(l) => {
+            if is_static {
+                println!("cargo:static=1");
+                for cargo_metadata_line in &l.cargo_metadata {
+                    println!("{}", cargo_metadata_line);
+                }
+            }
+            for path in &l.include_paths {
+                println!("cargo:include={}", path.to_str().unwrap());
+            }
+            Some(Package {
+                include_paths: l.include_paths,
+            })
+        }
         Err(e) => {
-            println!("Can't find libnfc pkg: {:?}", e);
+            println!("Can't find libnfc pkg via vcpkg: {:?}", e);
             None
         }
     }
 }
 
 #[cfg(all(not(target_env = "msvc"), not(feature = "vendored")))]
-fn find_libnfc_pkg(is_static: bool) -> Option<Package> {
+fn find_libnfc_pkg_platform_specific(_is_static: bool) -> Option<Package> {
+    None
+}
+
+#[cfg(not(feature = "vendored"))]
+fn find_libnfc_pkg_config(is_static: bool) -> Option<Package> {
     match pkg_config::Config::new().statik(is_static).probe("libnfc") {
         Ok(l) => {
-            for lib in l.libs {
-                if is_static {
+            if is_static {
+                println!("cargo:static=1");
+                for lib in &l.libs {
                     println!("cargo:rustc-link-lib=static={}", lib);
                 }
             }
-            // Provide metadata and include directory for dependencies
-            if is_static {
-                println!("cargo:static=1");
-            }
-            l.include_paths.iter().for_each(|path| {
+            for path in &l.include_paths {
                 println!("cargo:include={}", path.to_str().unwrap());
-            });
+            }
             println!("cargo:version_number={}", l.version);
-
             Some(Package {
                 include_paths: l.include_paths,
             })
         }
         Err(e) => {
-            println!("Can't find libnfc pkg: {:?}", e);
+            println!("Can't find libnfc pkg via pkg-config: {:?}", e);
             None
         }
     }
@@ -289,11 +301,12 @@ fn main() {
     let libnfc_pkg = make_source(&nfc_dir, &out_dir);
 
     #[cfg(not(feature = "vendored"))]
-    let libnfc_pkg =
-        find_libnfc_pkg(cfg!(target_feature = "crt-static")).expect("libnfc not found.");
+    let libnfc_pkg = find_libnfc_pkg_platform_specific(cfg!(target_feature = "crt-static"))
+        .or(find_libnfc_pkg_config(cfg!(target_feature = "crt-static")))
+        .expect("libnfc not found.");
 
     let mut bindings = Builder::default();
-    for path in libnfc_pkg.include_paths {
+    for path in &libnfc_pkg.include_paths {
         bindings = bindings.clang_arg(format!("-I{}", path.display()));
 
         let header_path = path.join("nfc").join("nfc.h");
