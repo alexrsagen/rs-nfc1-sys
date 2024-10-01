@@ -216,7 +216,7 @@ fn make_source(nfc_dir: &PathBuf, out_dir: &PathBuf) -> Package {
     println!("cargo:static=1");
     println!("cargo:include={}", include_dir.display());
     println!("cargo:version_number={}", VERSION);
-    println!("cargo:rustc-link-lib=nfc");
+    println!("cargo:rustc-link-lib=static=nfc");
     println!("cargo:rustc-link-search=native={}", build_dir.display());
     if cfg!(target_os = "macos") {
         println!("cargo:rustc-link-lib=framework=CoreFoundation");
