@@ -96,11 +96,13 @@ fn set_pcsc_config_windows(config: &mut cmake::Config) {
 fn set_platform_specific_config(
     config: &mut cmake::Config,
     usb01_include_dir: &PathBuf,
-    _usb1_include_dir: &PathBuf,
+    usb1_include_dir: &PathBuf,
 ) {
+    let usb01_lib = usb01_include_dir.parent().unwrap().join("usb.lib");
+    let usb1_lib = usb1_include_dir.parent().unwrap().join("usb.lib");
     config.define(
         "LIBUSB_LIBRARIES",
-        &usb01_include_dir.parent().unwrap().join("usb.lib"),
+        format!("{};{}", usb1_lib.display(), usb01_lib.display()),
     );
     if cfg!(feature = "driver_pcsc") {
         set_pcsc_config_windows(config);
@@ -113,22 +115,12 @@ fn set_unix_like_libusb_config(
     usb01_include_dir: &PathBuf,
     usb1_include_dir: &PathBuf,
 ) {
-    let usb01_lib = usb01_include_dir
-        .parent()
-        .unwrap()
-        .join("libusb.a")
-        .into_os_string()
-        .into_string()
-        .unwrap();
-    let usb1_lib = usb1_include_dir
-        .parent()
-        .unwrap()
-        .join("libusb.a")
-        .into_os_string()
-        .into_string()
-        .unwrap();
-    config.define("LIBUSB_LIBRARIES", usb01_lib + ";" + &usb1_lib);
-    config.define("LIBUSB_FOUND", "TRUE");
+    let usb01_lib = usb01_include_dir.parent().unwrap().join("libusb.a");
+    let usb1_lib = usb1_include_dir.parent().unwrap().join("libusb.a");
+    config.define(
+        "LIBUSB_LIBRARIES",
+        format!("{};{}", usb1_lib.display(), usb01_lib.display()),
+    );
 }
 
 #[cfg(all(target_os = "macos", feature = "vendored"))]
@@ -175,7 +167,14 @@ fn make_source(nfc_dir: &PathBuf, out_dir: &PathBuf) -> Package {
         "DLLTOOL",
         &var("DLLTOOL").unwrap_or(String::from("dlltool")),
     );
-    config.define("LIBUSB_INCLUDE_DIRS", &usb01_include_dir);
+    config.define(
+        "LIBUSB_INCLUDE_DIRS",
+        format!(
+            "{};{}",
+            usb1_include_dir.display(),
+            usb01_include_dir.display()
+        ),
+    );
     config.define("BUILD_UTILS", "OFF");
     config.define("BUILD_EXAMPLES", "OFF");
     config.define("BUILD_SHARED_LIBS", "OFF");
@@ -216,8 +215,13 @@ fn make_source(nfc_dir: &PathBuf, out_dir: &PathBuf) -> Package {
     println!("cargo:static=1");
     println!("cargo:include={}", include_dir.display());
     println!("cargo:version_number={}", VERSION);
-    println!("cargo:rustc-link-lib=static=nfc");
+    println!(
+        "cargo:rustc-link-search=native={}",
+        usb01_include_dir.parent().unwrap().display()
+    );
+    println!("cargo:rustc-link-lib=static=usb");
     println!("cargo:rustc-link-search=native={}", build_dir.display());
+    println!("cargo:rustc-link-lib=static=nfc");
     if cfg!(target_os = "macos") {
         println!("cargo:rustc-link-lib=framework=CoreFoundation");
         println!("cargo:rustc-link-lib=framework=IOKit");
