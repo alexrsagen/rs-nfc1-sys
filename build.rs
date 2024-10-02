@@ -87,9 +87,13 @@ fn set_pcsc_config_windows(config: &mut cmake::Config) {
     }
     if let Some(winsdk_um_lib_path) = &winsdk_um_lib_path {
         config.define("PCSC_LIBRARIES", winsdk_um_lib_path.join("winscard.lib"));
+        println!("cargo:rustc-link-search=native={}", winsdk_um_lib_path.display());
+        println!("cargo:rustc-link-lib=static=winscard");
     } else {
         panic!("Unable to find Windows SDK library path. Please ensure the appropriate version of the Windows SDK for your target platform is installed with the correct feature set.");
     }
+
+    config.define("PCSC_FOUND", "YES");
 }
 
 #[cfg(all(target_os = "windows", feature = "vendored"))]
@@ -104,6 +108,7 @@ fn set_platform_specific_config(
         "LIBUSB_LIBRARIES",
         format!("{};{}", usb1_lib.display(), usb01_lib.display()),
     );
+    config.define("LIBUSB_FOUND", "YES");
     if cfg!(feature = "driver_pcsc") {
         set_pcsc_config_windows(config);
     }
@@ -121,6 +126,7 @@ fn set_unix_like_libusb_config(
         "LIBUSB_LIBRARIES",
         format!("{};{}", usb1_lib.display(), usb01_lib.display()),
     );
+    config.define("LIBUSB_FOUND", "YES");
 }
 
 #[cfg(all(target_os = "macos", feature = "vendored"))]
@@ -134,6 +140,9 @@ fn set_platform_specific_config(
         "CMAKE_SHARED_LINKER_FLAGS",
         "-lobjc -framework IOKit -framework CoreFoundation",
     );
+    if cfg!(feature = "driver_pcsc") {
+        // TODO: add static dependency to libpcsclite
+    }
 }
 
 #[cfg(all(
@@ -147,6 +156,9 @@ fn set_platform_specific_config(
     usb1_include_dir: &PathBuf,
 ) {
     set_unix_like_libusb_config(config, usb01_include_dir, usb1_include_dir);
+    if cfg!(feature = "driver_pcsc") {
+        // TODO: add static dependency to libpcsclite
+    }
 }
 
 #[cfg(feature = "vendored")]
@@ -178,6 +190,7 @@ fn make_source(nfc_dir: &PathBuf, out_dir: &PathBuf) -> Package {
     config.define("BUILD_UTILS", "OFF");
     config.define("BUILD_EXAMPLES", "OFF");
     config.define("BUILD_SHARED_LIBS", "OFF");
+    config.define("DOC_ENABLED", "OFF");
     config.define("CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG", &build_dir);
     config.define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG", &build_dir);
     config.define("CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG", &build_dir);
