@@ -358,137 +358,93 @@ fn main() {
         bindings = bindings
             .clang_arg(format!("-I{}", libnfc_dir.display()))
             .header(libnfc_dir.join("iso7816.h").to_str().unwrap())
-            .allowlist_var("[Ii][Ss][Oo]7816_.*");
-
-        if cfg!(feature = "driver_acr122_pcsc") {
-            bindings = bindings
-                .header(
-                    libnfc_dir
-                        .join("drivers")
-                        .join("acr122_pcsc.h")
-                        .to_str()
-                        .unwrap(),
-                )
-                .allowlist_function("acr122_pcsc_.*")
-                .allowlist_type("acr122_pcsc_.*")
-                .allowlist_var("[Aa][Cc][Rr]122_[Pp][Cc][Ss][Cc]_.*");
-        }
-
-        if cfg!(feature = "driver_acr122_usb") {
-            bindings = bindings
-                .header(
-                    libnfc_dir
-                        .join("drivers")
-                        .join("acr122_usb.h")
-                        .to_str()
-                        .unwrap(),
-                )
-                .allowlist_function("acr122_usb_.*")
-                .allowlist_type("acr122_usb_.*")
-                .allowlist_var("[Aa][Cc][Rr]122_[Uu][Ss][Bb]_.*");
-        }
-
-        if cfg!(feature = "driver_acr122s") {
-            bindings = bindings
-                .header(
-                    libnfc_dir
-                        .join("drivers")
-                        .join("acr122s.h")
-                        .to_str()
-                        .unwrap(),
-                )
-                .allowlist_function("acr122s_.*")
-                .allowlist_type("acr122s_.*")
-                .allowlist_var("[Aa][Cc][Rr]122[Ss]_.*");
-        }
-
-        if cfg!(feature = "driver_arygon") {
-            bindings = bindings
-                .header(
-                    libnfc_dir
-                        .join("drivers")
-                        .join("arygon.h")
-                        .to_str()
-                        .unwrap(),
-                )
-                .allowlist_function("arygon_.*")
-                .allowlist_type("arygon_.*")
-                .allowlist_var("[Aa][Rr][Yy][Gg][Oo][Nn]_.*");
-        }
-
-        if cfg!(feature = "driver_pn532_i2c")
-            || cfg!(feature = "driver_pn532_spi")
-            || cfg!(feature = "driver_pn532_uart")
-            || cfg!(feature = "driver_pn53x_usb")
-        {
-            bindings = bindings
-                .header(libnfc_dir.join("chips").join("pn53x.h").to_str().unwrap())
-                .allowlist_function("pn53[x23]_.*")
-                .allowlist_type("pn53[x23]_.*")
-                .allowlist_var("[Pp][Nn]53[Xx23]_.*");
-        }
-
-        if cfg!(feature = "driver_pn532_i2c") {
-            bindings = bindings.header(
+            .allowlist_var("[Ii][Ss][Oo]7816_.*")
+            .header(
+                libnfc_dir
+                    .join("drivers")
+                    .join("acr122_pcsc.h")
+                    .to_str()
+                    .unwrap(),
+            )
+            .allowlist_function("acr122_pcsc_.*")
+            .allowlist_type("acr122_pcsc_.*")
+            .allowlist_var("[Aa][Cc][Rr]122_[Pp][Cc][Ss][Cc]_.*")
+            .header(
+                libnfc_dir
+                    .join("drivers")
+                    .join("acr122_usb.h")
+                    .to_str()
+                    .unwrap(),
+            )
+            .allowlist_function("acr122_usb_.*")
+            .allowlist_type("acr122_usb_.*")
+            .allowlist_var("[Aa][Cc][Rr]122_[Uu][Ss][Bb]_.*")
+            .header(
+                libnfc_dir
+                    .join("drivers")
+                    .join("acr122s.h")
+                    .to_str()
+                    .unwrap(),
+            )
+            .allowlist_function("acr122s_.*")
+            .allowlist_type("acr122s_.*")
+            .allowlist_var("[Aa][Cc][Rr]122[Ss]_.*")
+            .header(
+                libnfc_dir
+                    .join("drivers")
+                    .join("arygon.h")
+                    .to_str()
+                    .unwrap(),
+            )
+            .allowlist_function("arygon_.*")
+            .allowlist_type("arygon_.*")
+            .allowlist_var("[Aa][Rr][Yy][Gg][Oo][Nn]_.*")
+            .header(libnfc_dir.join("chips").join("pn53x.h").to_str().unwrap())
+            .allowlist_function("pn53[x23]_.*")
+            .allowlist_type("pn53[x23]_.*")
+            .allowlist_var("[Pp][Nn]53[Xx23]_.*")
+            .header(
                 libnfc_dir
                     .join("drivers")
                     .join("pn532_i2c.h")
                     .to_str()
                     .unwrap(),
-            );
-        }
-
-        if cfg!(feature = "driver_pn532_spi") {
-            bindings = bindings.header(
+            )
+            .header(
                 libnfc_dir
                     .join("drivers")
                     .join("pn532_spi.h")
                     .to_str()
                     .unwrap(),
-            );
-        }
-
-        if cfg!(feature = "driver_pn532_uart") {
-            bindings = bindings.header(
+            )
+            .header(
                 libnfc_dir
                     .join("drivers")
                     .join("pn532_uart.h")
                     .to_str()
                     .unwrap(),
-            );
-        }
-
-        if cfg!(feature = "driver_pn53x_usb") {
-            bindings = bindings.header(
+            )
+            .header(
                 libnfc_dir
                     .join("drivers")
                     .join("pn53x_usb.h")
                     .to_str()
                     .unwrap(),
-            );
-        }
-
-        if cfg!(feature = "driver_pn71xx") {
-            bindings = bindings
-                .header(
-                    libnfc_dir
-                        .join("drivers")
-                        .join("pn71xx.h")
-                        .to_str()
-                        .unwrap(),
-                )
-                .allowlist_function("pn71xx_.*")
-                .allowlist_type("pn71xx_.*")
-                .allowlist_var("[Pp][Nn]71[Xx]{2}_.*");
-        }
-
-        if cfg!(feature = "driver_pcsc") {
-            bindings = bindings
-                .header(libnfc_dir.join("drivers").join("pcsc.h").to_str().unwrap())
-                .allowlist_function("pcsc_.*")
-                .allowlist_type("pcsc_.*")
-                .allowlist_var("[Pp][Cc][Ss][Cc]_.*");
-        }
+            )
+            .header(
+                libnfc_dir
+                    .join("drivers")
+                    .join("pn71xx.h")
+                    .to_str()
+                    .unwrap(),
+            )
+            .allowlist_function("pn71xx_.*")
+            .allowlist_type("pn71xx_.*")
+            .allowlist_var("[Pp][Nn]71[Xx]{2}_.*")
+            .header(libnfc_dir.join("drivers").join("pcsc.h").to_str().unwrap())
+            .allowlist_function("pcsc_.*")
+            .allowlist_type("pcsc_.*")
+            .allowlist_var("[Pp][Cc][Ss][Cc]_.*");
     }
 
     bindings
